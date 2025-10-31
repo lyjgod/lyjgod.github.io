@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>"饼"不可少勋章</title>
+    <title>"饼"不可少奖章</title>
     <style>
         * {
             margin: 0;
@@ -39,16 +39,21 @@
         .badge-container {
             perspective: 1000px;
             margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 300px; /* 固定高度防止位置偏移 */
         }
 
         .badge {
             width: 280px;
             height: 280px;
-            margin: 0 auto;
             position: relative;
             transform-style: preserve-3d;
-            transition: transform 0.8s ease-in-out;
+            transition: transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
             cursor: pointer;
+            transform-origin: 50% 50% 0; /* 明确指定3D旋转中心 */
         }
 
         .badge.flipped {
@@ -57,6 +62,8 @@
 
         .badge-face {
             position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             backface-visibility: hidden;
@@ -65,6 +72,7 @@
             justify-content: center;
             align-items: center;
             box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+            transform-origin: 50% 50% 0; /* 确保面板也有正确的旋转中心 */
         }
 
         /* 饼干正面 - 更真实的饼干外观 */
@@ -222,6 +230,10 @@
         }
 
         @media (max-width: 480px) {
+            .badge-container {
+                height: 240px; /* 调整移动端容器高度 */
+            }
+            
             .badge {
                 width: 220px;
                 height: 220px;
@@ -244,19 +256,12 @@
             }
         }
 
-        /* 点击效果 */
-        .badge:active {
-            transform: scale(0.95);
-        }
-
-        .badge.flipped:active {
-            transform: rotateY(180deg) scale(0.95);
-        }
+        /* 移除可能导致位置偏移的active效果，改为JavaScript控制 */
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="title">"饼"不可少勋章 🍪</h1>
+        <h1 class="title">"饼"不可少奖章 🍪</h1>
         
         <div class="badge-container">
             <div class="badge" id="badge" onclick="flipBadge()">
@@ -266,12 +271,11 @@
                 <div class="crumb">🥠</div>
                 
                 <div class="badge-face badge-front">
-                    <div class="badge-title">"饼"不可少勋章</div>
+                    <div class="badge-title">"饼"不可少奖章</div>
                     <div class="badge-subtitle">授予对象</div>
                     <div class="badge-recipient">饼饼</div>
                     <div class="badge-reason">
-                        因饼饼的聪明才智<br>
-                        正确回答问题<br>
+                        饼饼正确回答问题<br>
                         特此表彰
                     </div>
                 </div>
@@ -279,9 +283,9 @@
                 <div class="badge-face badge-back">
                     <div class="reward-title">🎉 成功解锁奖励 🎉</div>
                     <div class="reward-text">
-                        一次由颁奖人兑现的<br>
+                        一张由小猪颁发的<br>
                         <strong>🎫 愿望券 🎫</strong><br><br>
-                        请随时联系他兑换
+                        可实现一次愿望，请随时联系他兑换
                     </div>
                 </div>
             </div>
@@ -292,34 +296,82 @@
 
     <script>
         let isFlipped = false;
+        let isAnimating = false;
 
         function flipBadge() {
+            if (isAnimating) return; // 防止动画期间重复点击
+            
             const badge = document.getElementById('badge');
+            isAnimating = true;
             isFlipped = !isFlipped;
             
+            // 只使用CSS类控制旋转，不直接操作style.transform
             if (isFlipped) {
                 badge.classList.add('flipped');
             } else {
                 badge.classList.remove('flipped');
             }
+            
+            // 动画完成后重置状态
+            setTimeout(() => {
+                isAnimating = false;
+            }, 800); // 与CSS transition时间一致
         }
 
-        // 触摸反馈优化
+        // 优化的事件处理
         const badge = document.getElementById('badge');
+        let touchStartTime = 0;
         
+        // 桌面端点击
+        badge.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            flipBadge();
+        });
+
+        // 移动端触摸优化 - 简化版本，避免transform冲突
         badge.addEventListener('touchstart', function(e) {
             e.preventDefault();
+            touchStartTime = Date.now();
+            // 添加视觉反馈但不使用transform
+            this.style.opacity = '0.8';
         });
 
         badge.addEventListener('touchend', function(e) {
             e.preventDefault();
-            flipBadge();
+            e.stopPropagation();
+            
+            // 恢复透明度
+            this.style.opacity = '1';
+            
+            // 检查是否为有效点击（防止意外触发）
+            const touchDuration = Date.now() - touchStartTime;
+            if (touchDuration < 500) { // 500ms内的触摸认为是点击
+                flipBadge();
+            }
         });
 
-        // 防止双击缩放
-        badge.addEventListener('click', function(e) {
-            e.preventDefault();
+        // 防止触摸取消时的问题
+        badge.addEventListener('touchcancel', function(e) {
+            this.style.opacity = '1';
         });
+
+        // 防止页面缩放
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // 防止双击缩放
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(e) {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
     </script>
 </body>
 </html>
